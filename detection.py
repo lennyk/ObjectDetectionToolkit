@@ -20,9 +20,8 @@ class Detection(object):
     def __init__(self):
         # get the available libraries
         self._available_libraries = []
-        for name, obj in inspect.getmembers(libraries):
-            if inspect.isclass(obj) and not inspect.isabstract(obj):
-                self._available_libraries.append(name)
+        for library in libraries.Library.__subclasses__():
+            self._available_libraries.append(library.__name__)
 
     def selectFile(self, path, name):
         """Prompt the user to select a file from path."""
@@ -68,24 +67,16 @@ class Detection(object):
         sample = scipy.misc.imresize(sample, 0.25)
         model = scipy.misc.imresize(model, 0.5)
 
+        # find the keypoints and descriptors
+        kp_sample, des_sample = library.find_keypoints_descriptors(model)
+        kp_model, des_model = library.find_keypoints_descriptors(sample)
 
-        # TODO: this is from
-        # http://stackoverflow.com/a/21989251
-        img1 = model
-        img2 = sample
+        # match descriptors
+        matches = library.match_descriptors(des_sample, des_model)
 
-        # Initiate SIFT detector
-        orb = cv2.ORB()
-
-        # find the keypoints and descriptors with SIFT
-        kp1, des1 = orb.detectAndCompute(img1,None)
-        kp2, des2 = orb.detectAndCompute(img2,None)
-
-        # create BFMatcher object
-        bf = cv2.BFMatcher(cv2.NORM_HAMMING)#, crossCheck=True)
-        matches = bf.knnMatch(des1, trainDescriptors = des2, k = 2)
-        p1, p2, kp_pairs = filter_matches(kp1, kp2, matches)
-        explore_match('find_obj', img1,img2,kp_pairs)#cv2 shows image
+        # use copied OpenCV sample code to filter matches and show the match
+        p1, p2, kp_pairs = filter_matches(kp_sample, kp_model, matches)
+        explore_match('find_obj', model,sample,kp_pairs) # cv2 shows image
 
         cv2.waitKey()
         cv2.destroyAllWindows()
