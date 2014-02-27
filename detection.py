@@ -9,7 +9,6 @@ from matplotlib import pyplot
 
 from find_obj import filter_matches, explore_match
 
-import numpy as np
 import matplotlib.pyplot as plt
 
 import inspect
@@ -23,19 +22,32 @@ class Detection(object):
         for library in libraries.Library.__subclasses__():
             self._available_libraries.append(library.__name__)
 
-    def selectFile(self, path, name):
+    def select_file(self, path, name, allOption=False):
         """Prompt the user to select a file from path."""
 
         # get files in path
         files = [ f for f in listdir(path) if isfile(join(path,f)) ]
 
-        # select a file (0 to n-1)
-        file = self.selectOption(files, name)
+        # copy files and add the "ALL" option if enabled
+        options = list(files)
+        if allOption:
+            options.append('ALL')
 
-        # return the file
-        return join(path, file)
+        # select an option
+        selection = self.select_option(options, name)
 
-    def selectOption(self, options, name):
+        # if it's a file, put the path back on the front
+        result = []
+        if selection is 'ALL':
+            for file in files:
+                result.append(join(path, file))
+        else:
+            result.append(join(path, selection))
+
+        # return the selection
+        return result
+
+    def select_option(self, options, name):
         # list the available files
         for (i, option) in enumerate(options):
             print (str(i+1) + ") " + option)
@@ -46,41 +58,56 @@ class Detection(object):
             selection = input("invalid selection. try again: ")
         return options[selection - 1]
 
-    def run(self):
-        """Run the main loop."""
-
-        # select a library
-        library_name = self.selectOption(self._available_libraries, 'library')
-        library = getattr(libraries, library_name)()
-        models_dir = library.models_dir
-        samples_dir = library.samples_dir
-
-        # select and load a model
-        model = self.selectFile(models_dir, 'model')
-        model = cv2.imread(model, 0)
-
-        # select and load a sample
-        sample = self.selectFile(samples_dir, 'sample')
-        sample = cv2.imread(sample, 0)
+    def identify_model(self, library, models, sample):
 
         # downsize the sample
+        models = [scipy.misc.imresize(model, 0.5) for model in models]
         sample = scipy.misc.imresize(sample, 0.25)
-        model = scipy.misc.imresize(model, 0.5)
 
-        # find the keypoints and descriptors
-        kp_sample, des_sample = library.find_keypoints_descriptors(model)
-        kp_model, des_model = library.find_keypoints_descriptors(sample)
+        # find the keypoints and descriptors, result is tuple containing (keypoints, descriptors)
+        info_models = [library.find_keypoints_descriptors(model) for model in models]
+        info_sample = library.find_keypoints_descriptors(sample)
 
         # match descriptors
-        matches = library.match_descriptors(des_sample, des_model)
+        matches = [library.match_descriptors(info_model[1], info_sample[1]) for info_model in info_models]
 
-        # use copied OpenCV sample code to filter matches and show the match
-        p1, p2, kp_pairs = filter_matches(kp_sample, kp_model, matches)
-        explore_match('find_obj', model,sample,kp_pairs) # cv2 shows image
+        # filter matches and select the best
+        filtered_matches_set = [library.filter_matches(match) for match in matches]
+
+        # select the largest bunch of matches and keep track of its index to select the associated model
+        best_matches_index, best_matches = max(enumerate(filtered_matches_set), key = lambda tup: len(tup[1]))
+
+        points_model, points_sample, keypoint_pairs =\
+            library.prepare_match_points(info_models[best_matches_index][0], info_sample[0], best_matches)
+
+        # old OpenCV sample code to filter matches
+        # p1, p2, kp_pairs = filter_matches(kp_sample, kp_model, matches)
+
+        # use OpenCV sample code to display the match
+        explore_match('find_obj', models[best_matches_index], sample, keypoint_pairs)
 
         cv2.waitKey()
         cv2.destroyAllWindows()
 
+    def run(self):
+        """Run the main loop."""
+
+        # select a library
+        library_name = self.select_option(self._available_libraries, 'library')
+        library = getattr(libraries, library_name)()
+        models_dir = library.models_dir
+        samples_dir = library.samples_dir
+
+        # select and load a single model, or all models with the "ALL" option
+        models = self.select_file(models_dir, 'model', True)
+        model_images = [cv2.imread(model, 0) for model in models]
+
+        # select and load a sample
+        # will receive an array from select_file() but we only ever have one sample so index it
+        sample = self.select_file(samples_dir, 'sample')[0]
+        sample_image = cv2.imread(sample, 0)
+
+        self.identify_model(library, model_images, sample_image)
 
         # # detect keypoints of model and sample
         # model_pyrdown = cv2.pyrDown(model) # pyrdown
