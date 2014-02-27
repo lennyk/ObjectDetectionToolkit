@@ -10,40 +10,58 @@ from matplotlib import pyplot
 from find_obj import filter_matches, explore_match
 
 import numpy as np
-import cv2
 import matplotlib.pyplot as plt
+
+import inspect
+import libraries
 
 class Detection(object):
 
     def __init__(self):
-        self.samplesDir = 'images/samples'
-        self.modelsDir = 'images/models'
+        # get the available libraries
+        self._available_libraries = []
+        for name, obj in inspect.getmembers(libraries):
+            if inspect.isclass(obj) and not inspect.isabstract(obj):
+                self._available_libraries.append(name)
 
     def selectFile(self, path, name):
         """Prompt the user to select a file from path."""
 
         # get files in path
         files = [ f for f in listdir(path) if isfile(join(path,f)) ]
+
+        # select a file (0 to n-1)
+        file = self.selectOption(files, name)
+
+        # return the file
+        return join(path, file)
+
+    def selectOption(self, options, name):
         # list the available files
-        for (i, file) in enumerate(files):
-            print (str(i+1) + ") " + file)
+        for (i, option) in enumerate(options):
+            print (str(i+1) + ") " + option)
         # require user to select a numbered file
         selection = input("select a " + name + ": ")
         # if input is invalid, require user to try again
-        while selection not in range(1, len(files) + 1):
+        while selection not in range(1, len(options) + 1):
             selection = input("invalid selection. try again: ")
-        # return the file
-        return join(path, files[selection - 1])
+        return options[selection - 1]
 
     def run(self):
         """Run the main loop."""
 
+        # select a library
+        library_name = self.selectOption(self._available_libraries, 'library')
+        library = getattr(libraries, library_name)()
+        models_dir = library.models_dir
+        samples_dir = library.samples_dir
+
         # select and load a model
-        model = self.selectFile(self.modelsDir, 'model')
+        model = self.selectFile(models_dir, 'model')
         model = cv2.imread(model, 0)
 
         # select and load a sample
-        sample = self.selectFile(self.samplesDir, 'sample')
+        sample = self.selectFile(samples_dir, 'sample')
         sample = cv2.imread(sample, 0)
 
         # downsize the sample
@@ -65,7 +83,6 @@ class Detection(object):
 
         # create BFMatcher object
         bf = cv2.BFMatcher(cv2.NORM_HAMMING)#, crossCheck=True)
-
         matches = bf.knnMatch(des1, trainDescriptors = des2, k = 2)
         p1, p2, kp_pairs = filter_matches(kp1, kp2, matches)
         explore_match('find_obj', img1,img2,kp_pairs)#cv2 shows image
