@@ -105,12 +105,12 @@ class Detection(object):
 
         # select and load a single model, or all models with the "ALL" option
         models = self.select_file(models_dir, 'model', True)
-        model_images = [self.resize_image(cv2.imread(model, 0)) for model in models]
+        model_images = [self.resize_image(cv2.imread(model, 0), 300) for model in models]
 
         # select and load a sample
         # will receive an array from select_file() but we only ever have one sample so index it
         sample = self.select_file(samples_dir, 'sample')[0]
-        sample_image = self.resize_image(cv2.imread(sample, 0))
+        sample_image = self.resize_image(cv2.imread(sample, 0), 700)
         self.resize_image(sample_image)
 
         self.identify_model(library, model_images, sample_image)
