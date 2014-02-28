@@ -16,7 +16,7 @@ class Detection(object):
             self._available_libraries.append(library.__name__)
 
     def select_file(self, path, name, allOption=False):
-        """Prompt the user to select a file from path."""
+        """Prompt the user to select a file from the supplied path."""
 
         # get files in path
         files = [ f for f in listdir(path) if isfile(join(path,f)) ]
@@ -41,17 +41,22 @@ class Detection(object):
         return result
 
     def select_option(self, options, name):
+        """Prompt the user to select a numbered option from the supplied list."""
+
         # list the available files
         for (i, option) in enumerate(options):
             print (str(i+1) + ") " + option)
-        # require user to select a numbered file
-        selection = input("select a " + name + ": ")
+
+        # prompt user to select a numbered file
+        selection = raw_input("select a " + name + ": ")
+
         # if input is invalid, require user to try again
-        while selection not in range(1, len(options) + 1):
-            selection = input("invalid selection. try again: ")
-        return options[selection - 1]
+        while not selection.isdigit() or int(selection) not in range(1, len(options) + 1):
+            selection = raw_input("invalid selection. try again: ")
+        return options[int(selection) - 1]
 
     def identify_model(self, library, models, sample):
+        """Identifies the model from the list of models in the given sample using the given library."""
 
         # downsize the sample
         models = [scipy.misc.imresize(model, 0.5) for model in models]
