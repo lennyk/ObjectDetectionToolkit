@@ -58,10 +58,6 @@ class Detection(object):
     def identify_model(self, library, models, sample):
         """Identifies the model from the list of models in the given sample using the given library."""
 
-        # downsize the sample
-        models = [scipy.misc.imresize(model, 0.5) for model in models]
-        sample = scipy.misc.imresize(sample, 0.25)
-
         # find the keypoints and descriptors, result is tuple containing (keypoints, descriptors)
         info_models = [library.find_keypoints_descriptors(model) for model in models]
         info_sample = library.find_keypoints_descriptors(sample)
@@ -87,6 +83,17 @@ class Detection(object):
         cv2.waitKey()
         cv2.destroyAllWindows()
 
+    def resize_image(self, image, max_size=600):
+        """Downsize an image proportionally if its height or width is greater than a given maximum."""
+
+        max_size = float(max_size)
+        size = image.shape
+        if max(size) > max_size:
+            ratio = min(max_size/size[0], max_size/size[1])
+            image = scipy.misc.imresize(image, ratio)
+        return image
+
+
     def run(self):
         """Run the main loop."""
 
@@ -98,12 +105,13 @@ class Detection(object):
 
         # select and load a single model, or all models with the "ALL" option
         models = self.select_file(models_dir, 'model', True)
-        model_images = [cv2.imread(model, 0) for model in models]
+        model_images = [self.resize_image(cv2.imread(model, 0)) for model in models]
 
         # select and load a sample
         # will receive an array from select_file() but we only ever have one sample so index it
         sample = self.select_file(samples_dir, 'sample')[0]
-        sample_image = cv2.imread(sample, 0)
+        sample_image = self.resize_image(cv2.imread(sample, 0))
+        self.resize_image(sample_image)
 
         self.identify_model(library, model_images, sample_image)
 
