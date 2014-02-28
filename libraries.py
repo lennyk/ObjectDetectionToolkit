@@ -19,7 +19,6 @@ class Library(object):
     def samples_dir(self):
         return self._samples_dir
 
-    @abc.abstractmethod
     def find_keypoints_descriptors(self, image):
         pass
 
@@ -58,3 +57,10 @@ class Books(Library):
             if len(match) == 2 and match[0].distance < ratio*match[1].distance:
                 good_matches.append(match)
         return good_matches
+
+class Autos(Books, Library):
+
+    def __init__(self):
+        super(Autos, self).__init__()
+        self._models_dir = 'images/autos/models'
+        self._samples_dir = 'images/autos/samples'
